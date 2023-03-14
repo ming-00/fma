@@ -314,7 +314,7 @@ def build_sample_loader(audio_dir, Y, loader):
             self.condition = multiprocessing.Condition(lock=self.lock2)
 
             data = sharedctypes.RawArray(ctypes.c_int, tids.data)
-            self.tids = np.ctypeslib.as_array(data)
+            self.tids = np.ctypeslib.asarray(data)
 
             self.batch_size = batch_size
             self.loader = loader
