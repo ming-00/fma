@@ -19,117 +19,6 @@ SAMPLING_RATE = 44100
 # Load the environment from the .env file.
 dotenv.load_dotenv(dotenv.find_dotenv())
 
-
-class FreeMusicArchive:
-
-    BASE_URL = 'https://freemusicarchive.org/api/get/'
-
-    def __init__(self, api_key):
-        self.api_key = api_key
-
-    def get_recent_tracks(self):
-        URL = 'https://freemusicarchive.org/recent.json'
-        r = requests.get(URL)
-        r.raise_for_status()
-        tracks = []
-        artists = []
-        date_created = []
-        for track in r.json()['aTracks']:
-            tracks.append(track['track_id'])
-            artists.append(track['artist_name'])
-            date_created.append(track['track_date_created'])
-        return tracks, artists, date_created
-
-    def _get_data(self, dataset, fma_id, fields=None):
-        url = self.BASE_URL + dataset + 's.json?'
-        url += dataset + '_id=' + str(fma_id) + '&api_key=' + self.api_key
-        # print(url)
-        r = requests.get(url)
-        r.raise_for_status()
-        if r.json()['errors']:
-            raise Exception(r.json()['errors'])
-        data = r.json()['dataset'][0]
-        r_id = data[dataset + '_id']
-        if r_id != str(fma_id):
-            raise Exception('The received id {} does not correspond to'
-                            'the requested one {}'.format(r_id, fma_id))
-        if fields is None:
-            return data
-        if type(fields) is list:
-            ret = {}
-            for field in fields:
-                ret[field] = data[field]
-            return ret
-        else:
-            return data[fields]
-
-    def get_track(self, track_id, fields=None):
-        return self._get_data('track', track_id, fields)
-
-    def get_album(self, album_id, fields=None):
-        return self._get_data('album', album_id, fields)
-
-    def get_artist(self, artist_id, fields=None):
-        return self._get_data('artist', artist_id, fields)
-
-    def get_all(self, dataset, id_range):
-        index = dataset + '_id'
-
-        id_ = 2 if dataset == 'track' else 1
-        row = self._get_data(dataset, id_)
-        df = pd.DataFrame(columns=row.keys())
-        df.set_index(index, inplace=True)
-
-        not_found_ids = []
-
-        for id_ in id_range:
-            try:
-                row = self._get_data(dataset, id_)
-            except:
-                not_found_ids.append(id_)
-                continue
-            row.pop(index)
-            df = df.append(pd.Series(row, name=id_))
-
-        return df, not_found_ids
-
-    def download_track(self, track_file, path):
-        url = 'https://files.freemusicarchive.org/' + track_file
-        r = requests.get(url, stream=True)
-        r.raise_for_status()
-        with open(path, 'wb') as f:
-            shutil.copyfileobj(r.raw, f)
-
-    def get_track_genres(self, track_id):
-        genres = self.get_track(track_id, 'track_genres')
-        genre_ids = []
-        genre_titles = []
-        for genre in genres:
-            genre_ids.append(genre['genre_id'])
-            genre_titles.append(genre['genre_title'])
-        return genre_ids, genre_titles
-
-    def get_all_genres(self):
-        df = pd.DataFrame(columns=['genre_parent_id', 'genre_title',
-                                   'genre_handle', 'genre_color'])
-        df.index.rename('genre_id', inplace=True)
-
-        page = 1
-        while True:
-            url = self.BASE_URL + 'genres.json?limit=50'
-            url += '&page={}&api_key={}'.format(page, self.api_key)
-            r = requests.get(url)
-            for genre in r.json()['dataset']:
-                genre_id = int(genre.pop(df.index.name))
-                df.loc[genre_id] = genre
-            assert (r.json()['page'] == str(page))
-            page += 1
-            if page > r.json()['total_pages']:
-                break
-
-        return df
-
-
 class Genres:
 
     def __init__(self, genres_df):
@@ -203,8 +92,7 @@ def load(filepath):
 
         COLUMNS = [('track', 'date_created'), ('track', 'date_recorded'),
                    ('album', 'date_created'), ('album', 'date_released'),
-                   ('artist', 'date_created'), ('artist', 'active_year_begin'),
-                   ('artist', 'active_year_end')]
+                   ('artist', 'date_created')]
         for column in COLUMNS:
             tracks[column] = pd.to_datetime(tracks[column])
 
@@ -217,7 +105,7 @@ def load(filepath):
             tracks['set', 'subset'] = tracks['set', 'subset'].astype(
                      pd.CategoricalDtype(categories=SUBSETS, ordered=True))
 
-        COLUMNS = [('track', 'genre_top'), ('track', 'license'),
+        COLUMNS = [('track', 'genre_top'),
                    ('album', 'type'), ('album', 'information'),
                    ('artist', 'bio')]
         for column in COLUMNS:
