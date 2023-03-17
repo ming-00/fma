@@ -76,9 +76,6 @@ def load(filepath):
     if 'features' in filename:
         return pd.read_csv(filepath, index_col=0, header=[0, 1, 2])
 
-    if 'echonest' in filename:
-        return pd.read_csv(filepath, index_col=0, header=[0, 1, 2])
-
     if 'genres' in filename:
         return pd.read_csv(filepath, index_col=0)
 
